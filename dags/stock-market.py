@@ -5,7 +5,7 @@ from airflow.operators.python import PythonOperator #in requirements.txt to inst
 from airflow.providers.docker.operators.docker import DockerOperator
 from datetime import datetime
 
-from include.stock_market.tasks import _get_stock_prices, _store_prices
+from include.stock_market.tasks import _get_stock_prices, _store_prices, _get_formatted_csv
 
 SYMBOL = 'NVDA'
 
@@ -59,8 +59,16 @@ def stock_market():
             #ti. -> task instance
         }
     )
+
+    get_formatted_csv = PythonOperator(
+        task_id='get_formatted_csv',
+        python_callable=_get_formatted_csv,
+        op_kwargs={
+            'path': '{{ ti.xcom_pull(task_ids="store_prices") }}' #dictionary
+        }
+    )
     
-    is_api_available() >> get_stock_prices >> store_prices >> format_prices# to run task
+    is_api_available() >> get_stock_prices >> store_prices >> format_prices >> get_formatted_csv# to run task
         
 
 stock_market()
