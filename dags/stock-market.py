@@ -1,7 +1,7 @@
 from airflow.decorators import dag, task
 from airflow.hooks.base import BaseHook
 from airflow.sensors.base import PokeReturnValue
-from airflow.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator #in requirements.txt to install: apache-airflow-providers-dockers==4.0.0 ===>>> then in console: astro dev restart; astro dev run dags test stock_market 2025-01-01
 from airflow.providers.docker.operators.docker import DockerOperator
 from datetime import datetime
 
@@ -42,8 +42,25 @@ def stock_market():
         python_callable=_store_prices,
         op_kwargs={'stock': '{{ ti.xcom_pull(task_ids="get_stock_prices") }}'} #only 1 parameters in function
     )
+
+    format_prices = DockerOperator(
+        task_id='format_prices',
+        image='airflow/stock-app',
+        container_name='format_prices', #in docker deskop
+        api_version='auto',
+        auto_remove='success', #contener will be deleted automatically, if it is ended 'success'
+        docker_url='tcp://docker-proxy:2375', #default
+        network_mode='container:spark-master', # the same network as spark is using
+        tty=True, #to turn terminal on
+        xcom_all=False, # it doesn't write the whole output to xcom
+        mount_tmp_dir=False, # to not mount temporary directory
+        environment={
+            'SPARK_APPLICATION_ARGS': '{{ ti.xcom_pull(task_ids="store_prices") }}' #dictionary, xcom from previous task
+            #ti. -> task instance
+        }
+    )
     
-    is_api_available() >> get_stock_prices >> store_prices # to run task
+    is_api_available() >> get_stock_prices >> store_prices >> format_prices# to run task
         
 
 stock_market()
